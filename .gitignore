@@ -15,3 +15,5 @@ desktop.ini
 
 # Build artifacts
 *.spec
+
+datasets/

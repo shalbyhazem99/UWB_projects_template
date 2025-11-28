@@ -1,0 +1,17 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
+
+# OS files
+desktop.ini
+.DS_Store
+
+# Build artifacts
+*.spec

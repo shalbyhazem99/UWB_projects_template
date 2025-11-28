@@ -17,22 +17,129 @@ typically:
 3. Use **bridge.py** to play data into the TinyML board (live or from logs)
 
 ---
-
 ## 📦 Installation
 
 ### 1. Install Python
 
-You need **Python 3.10 or newer**.
+Python is the programming language this project uses.
 
-### 2. Install the required packages
+* Go to the official Python download page: [https://www.python.org/downloads/](https://www.python.org/downloads/)
+* Download Python **3.10 or newer** for your system.
+* **Important:** During installation, check the box **“Add Python to PATH”**. This makes it easier to run Python from the terminal.
+* Finish the installation.
+
+To check if Python is installed, open a terminal (Command Prompt / PowerShell / Terminal) and type:
+
+```sh
+python --version
+```
+
+You should see something like:
+
+```
+Python 3.10.x
+```
+
+
+### 2. Install Git
+
+Git is a tool that lets you download (clone) projects from GitHub.
+
+* Download Git from: [https://git-scm.com/downloads](https://git-scm.com/downloads)
+* Install it using the default options.
+
+To check if Git is installed, type in the terminal:
+
+```sh
+git --version
+```
+
+You should see a version number like `git version 2.xx.x`.
+
+
+### 3. Install Visual Studio Code (VS Code)
+
+VS Code is a code editor where you can open and edit your project.
+
+* Download VS Code: [https://code.visualstudio.com/](https://code.visualstudio.com/)
+* Install it using the default options.
+* Open VS Code.
+
+
+### 4. Clone the GitHub project
+
+Now we need a copy of the project on your computer.
+
+1. Open a terminal.
+2. Navigate to the folder where you want to store the project. For example:
+
+```sh
+cd C:\Users\YourName\Documents
+```
+
+3. Clone the project (replace `<GITHUB_PROJECT_URL>` with the actual URL of the project):
+
+```sh
+git clone <GITHUB_PROJECT_URL>
+```
+
+4. Go into the project folder:
+
+```sh
+cd <PROJECT_FOLDER_NAME>
+```
+
+
+### 5. Create and activate a virtual environment (venv)
+
+A **virtual environment** is like a separate box where Python installs the packages your project needs. This keeps your project isolated from other Python projects on your computer.
+
+1. Create a virtual environment:
+
+```sh
+python -m venv venv
+```
+
+2. Activate it:
+
+* **Windows (PowerShell):**
+
+```sh
+.\venv\Scripts\Activate.ps1
+```
+
+* **Windows (Command Prompt):**
+
+```sh
+.\venv\Scripts\activate.bat
+```
+
+* **macOS/Linux:**
+
+```sh
+source venv/bin/activate
+```
+
+If it worked, your terminal will show something like `(venv)` at the beginning of the line.
+
+
+### 6. Install the required packages
+
+Now we need to install the project’s dependencies (packages it uses) inside the virtual environment:
 
 ```sh
 pip install -r requirements.txt
 ```
 
+This installs everything the project needs to run.
+
+
+
+✅ **Tip:** Every time you open a new terminal to work on this project, make sure to **activate the virtual environment** first (step 5).
+
 ---
 
-# ▶️ 1. Logger – Record Radar Data
+## ▶️ Logger – Record Radar Data
 
 `logger.py` connects to a radar over serial, receives frames, and saves them into a folder as:
 
@@ -46,7 +153,7 @@ pip install -r requirements.txt
 
 This recorded data can later be replayed with `bridge.py`.
 
----
+
 
 ## 🚀 How to Run `logger.py`
 
@@ -55,14 +162,14 @@ This recorded data can later be replayed with `bridge.py`.
 ```sh
 python logger.py
 ```
+---
 
-# ▶️ 2. Bridge – Send Data to the TinyML Model
+## ▶️ Bridge – Send Data to the TinyML Model
 
 `bridge.py` sends radar frames to the tinyML board in two possible ways:
 
----
 
-## 2️⃣A. Live Radar Mode
+### 1. Live Radar Mode
 
 Use this mode when the radar is connected and generating data in real time.
 
@@ -80,7 +187,7 @@ python src/bridge.py --radar COM6 --model COM9
 
 ---
 
-## 2️⃣ B. Log Replay Mode
+### 2️. Log Replay Mode
 
 Use this mode to replay `.npy` logs recorded with `logger.py`.
 
@@ -103,8 +210,9 @@ something_rx0.npy
 something_rx1.npy  
 something_rx2.npy
 ```
+---
 
-# 💡 Overview of the Workflow
+## 💡 Overview of the Workflow
 
 ### **1. Record data (optional, using logger.py)**
 

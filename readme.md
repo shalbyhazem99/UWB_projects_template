@@ -232,7 +232,7 @@ receive radar frames sent by `bridge.py`, you must correctly wire the
 
 ### 📷 Wiring Diagram
 
-![Wiring Diagram](src\assets\wiring.jpg)
+![Wiring Diagram](src/assets/wiring.jpg)
 
 ### 🔧 Required Connections
 

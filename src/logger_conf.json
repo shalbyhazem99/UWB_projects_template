@@ -8,5 +8,6 @@
 	"Left leg up"
 	
     ],
-    "fps": 10
+    "fps": 10,
+    "ranging_port" : "COM10"
 }

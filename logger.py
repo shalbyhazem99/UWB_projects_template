@@ -631,7 +631,7 @@ class FormLayout(QWidget):
                         continue
 
             elif self.sr250rangingActive.isChecked():
-                esp_port = "/dev/ttyACM0"
+                esp_port = self.logger.ranging_port
             
 
             if esp_port is None:
@@ -892,7 +892,8 @@ class Logger(pg.GraphicsView):
         with open('src/logger_conf.json', 'r') as f:
             self.config = json.load(f)
 
-            self.fps = self.config["fps"]        
+            self.fps = self.config["fps"]
+            self.ranging_port = self.config["ranging_port"]      
 
 
 

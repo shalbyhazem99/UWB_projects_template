@@ -153,7 +153,20 @@ This installs everything the project needs to run.
 
 This recorded data can later be replayed with `bridge.py`.
 
+## ⚙️ Logger Configuration
 
+The logger uses an editable configuration file:
+
+    src/logger_conf.json
+
+This file contains:
+
+-   **`activities`** → the list of activities supported by the logger\
+    (you can add new ones simply by expanding the list in the file)
+
+-   **`ranging_port`** → *essential for groups using radar and
+ranging together*\
+    It must be set to **correct radar serial port**.
 
 ## 🚀 How to Run `logger.py`
 
@@ -210,6 +223,25 @@ something_rx0.npy
 something_rx1.npy  
 something_rx2.npy
 ```
+
+## 🔌 Hardware Setup -- Connecting Arduino Nano ↔ UART‑TTL Converter
+
+To allow the microcontroller (Arduino Nano) running the TinyML model to
+receive radar frames sent by `bridge.py`, you must correctly wire the
+**UART‑TTL converter** to the Arduino hardware serial pins.
+
+### 📷 Wiring Diagram
+
+![Wiring Diagram](src\assets\wiring.jpg)
+
+### 🔧 Required Connections
+
+| UART–TTL Converter | Arduino Nano | Description |
+|--------------------|--------------|-------------|
+| **TX**             | **D0 (RX)**  | Converter transmits → Arduino receives |
+| **RX**             | **D1 (TX)**  | Arduino transmits → converter receives |
+| **GND**            | **GND**      | Common ground is required |
+
 ---
 
 ## 💡 Overview of the Workflow

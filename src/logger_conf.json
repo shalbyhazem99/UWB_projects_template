@@ -9,5 +9,6 @@
 	
     ],
     "fps": 10,
-    "ranging_port" : "COM10"
+    "ranging_port" : "COM14",
+    "datasets_path" : "datasets"
 }

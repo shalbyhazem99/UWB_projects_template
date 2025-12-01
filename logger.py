@@ -50,6 +50,8 @@ class SR250MateSignalProcessing(QThread):
 
         self.read_ranging = sr250rangingActive
 
+        self.datasets = "datasets"
+
 
 
 
@@ -61,9 +63,10 @@ class SR250MateSignalProcessing(QThread):
         print("DATA ACQUISITION FINISHED!")
 
 
-    def set_parameters(self, device, samples_number, window_duration, user_id, activity, room, target_position, timestamp):
+    def set_parameters(self, device, samples_number, window_duration, datasets, user_id, activity, room, target_position, timestamp):
         self.samples_number = samples_number
         self.window_duration = window_duration
+        self.datasets = datasets
         self.user_id = user_id
         self.activity = activity
         self.room = room
@@ -194,7 +197,8 @@ class SR250MateSignalProcessing(QThread):
     def save_data(self):
 
         file_list = []
-        filepath = "datasets/SR250Mate"
+
+        filepath = os.path.join(self.datasets,"SR250Mate")
 
         if self.read_ranging:
             filepath += "_Ranging"
@@ -249,14 +253,16 @@ class PolarBLESignalProcessing(QThread):
         super().__init__()
         self.stop_event = stop_event
         self.address = None
+        self.datasets = "datasets"
         self.acc_data = deque(maxlen=50000)
         self.recording = False
         self.timer = None
         self.blehrm_client = None
         self.connected = False
 
-    def set_parameters(self, address):
+    def set_parameters(self, address, datasets):
         self.address = address
+        self.datasets = datasets
 
     def start_recording(self, user_id, activity, room, target_position, timestamp, window_duration, samples_number):
         self.acc_data.clear()
@@ -329,7 +335,9 @@ class PolarBLESignalProcessing(QThread):
             self.blehrm_client = None
 
     def save_data(self):
-        os.makedirs("datasets/PolarBLE", exist_ok=True)
+        filepath = os.path.join(self.datasets,"PolarBLE")
+
+        os.makedirs(filepath, exist_ok=True)
 
         filename=f"{self.user_id}_{self.activity}"
 
@@ -343,7 +351,7 @@ class PolarBLESignalProcessing(QThread):
 
         file = f"{filename}_acc.csv"
 
-        fullpath = os.path.join("datasets/PolarBLE", file)
+        fullpath = os.path.join(filepath, file)
         with open(fullpath, "w") as f:
             f.write("timestamp,timestamp_polar,acc_x,acc_y,acc_z\n")
             for t, tp, x, y, z in self.acc_data:
@@ -363,6 +371,7 @@ class BreathingProcessing(QThread):
         self.collection_complete=False
         self.sensors_data = [[], [], []]
         self.number_of_readings = 0
+        self.datasets = "datasets"
 
 
 
@@ -374,9 +383,10 @@ class BreathingProcessing(QThread):
         print("DATA ACQUISITION FINISHED!")
 
 
-    def set_parameters(self, samples_number, window_duration, user_id, activity, room, target_position, timestamp):
+    def set_parameters(self, samples_number, window_duration, datasets, user_id, activity, room, target_position, timestamp):
         self.samples_number = samples_number
         self.window_duration = window_duration
+        self.datasets = datasets
         self.user_id = user_id
         self.activity = activity
         self.room = room
@@ -432,8 +442,9 @@ class BreathingProcessing(QThread):
                 self.collection_complete = True
     
     def save_data(self):
-        os.makedirs("datasets/Breathing", exist_ok=True)
+        temp_path = os.path.join(self.datasets,"Breathing")
 
+        os.makedirs(temp_path, exist_ok=True)
 
         filename=f"{self.user_id}_{self.activity}"
 
@@ -447,7 +458,7 @@ class BreathingProcessing(QThread):
 
         file = f"{filename}_brathing.csv"
 
-        filepath = os.path.join("datasets/Breathing",file)
+        filepath = os.path.join(temp_path,file)
 
         with open(filepath, mode='w', newline='', encoding='utf-8') as file_csv:
             writer = csv.writer(file_csv)
@@ -893,7 +904,12 @@ class Logger(pg.GraphicsView):
             self.config = json.load(f)
 
             self.fps = self.config["fps"]
-            self.ranging_port = self.config["ranging_port"]      
+            self.ranging_port = self.config["ranging_port"]
+            self.datasets_path = self.config["datasets_path"]
+
+            if not os.path.exists(self.datasets_path):
+                os.mkdir(self.datasets_path)
+      
 
 
 
@@ -1052,7 +1068,7 @@ class Logger(pg.GraphicsView):
         self.stop_event_ble = threading.Event()
         self.polar_ble = PolarBLESignalProcessing(stop_event=self.stop_event_ble)
         self.polar_ble.signalLive.connect(self.show_polar_acc)
-        self.polar_ble.set_parameters(address=address)
+        self.polar_ble.set_parameters(address=address, datasets=self.datasets_path)
         self.polar_ble.collection_finished.connect(self.save_message)
         self.polar_ble.start()
 
@@ -1134,7 +1150,7 @@ class Logger(pg.GraphicsView):
                 self.sr250_radar.signalLive.connect(self.show_250_hmap)
                 if self.form.sr250rangingActive.isChecked():
                     self.sr250_radar.signalRanging.connect(self.show_distance_sr250)
-                self.sr250_radar.set_parameters(self.form.sr250Port, self.samples_number, self.window_duration, self.username, self.activity, self.room, self.selected_pos, timestamp)
+                self.sr250_radar.set_parameters(self.form.sr250Port, self.samples_number, self.window_duration, self.datasets_path, self.username, self.activity, self.room, self.selected_pos, timestamp)
                 self.dec_frames_sr250 = np.zeros((self.sr250_radar.total_samples_required,  self.sr250_radar.range_bins), dtype=np.complex64)
                 self.sr250_samples_collected = 0
 
@@ -1145,7 +1161,7 @@ class Logger(pg.GraphicsView):
                 self.breathing_band = BreathingProcessing(stop_event=self.stop_event)
                 self.breathing_band.collection_finished.connect(self.save_message)
                 self.breathing_band.signalLive.connect(self.show_breathing_signal)
-                self.breathing_band.set_parameters(self.samples_number, self.window_duration, self.username, self.activity, self.room, self.selected_pos, timestamp)    
+                self.breathing_band.set_parameters(self.samples_number, self.window_duration, self.datasets_path, self.username, self.activity, self.room, self.selected_pos, timestamp)    
             
 
             if self.form.sr250active.isChecked() or self.form.sr250rangingActive.isChecked():

@@ -168,6 +168,9 @@ This file contains:
 ranging together*\
     It must be set to **correct radar serial port**.
 
+-   **`datasets_path`** → the name of the folder where all recorded data will be stored\
+    (the logger will automatically save each acquisition inside this directory)
+
 ## 🚀 How to Run `logger.py`
 
 ### **Command**

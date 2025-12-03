@@ -80,7 +80,7 @@ cd C:\Users\YourName\Documents
 3. Clone the project (replace `<GITHUB_PROJECT_URL>` with the actual URL of the project):
 
 ```sh
-git clone <GITHUB_PROJECT_URL>
+git clone https://github.com/shalbyhazem99/UWB_projects_template
 ```
 
 4. Go into the project folder:

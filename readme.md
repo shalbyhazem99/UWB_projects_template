@@ -164,8 +164,14 @@ This file contains:
 -   **`activities`** → the list of activities supported by the logger\
     (you can add new ones simply by expanding the list in the file)
 
--   **`ranging_port`** → *essential for groups using radar and
-ranging together*\
+-   **`fps`** → Set to **10** for radar-only projects, or **25** when using radar + ranging
+
+-   **`breathing_address`** → Name/identifier of the breathing belt device
+
+-   **`breathing_connection`** → Specify "ble" or "usb" **(Windows requires USB)**
+
+-   **`ranging_port`** → essential for groups using radar and
+ranging together\
     It must be set to **correct radar serial port**.
 
 -   **`datasets_path`** → the name of the folder where all recorded data will be stored\

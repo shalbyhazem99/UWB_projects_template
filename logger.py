@@ -694,8 +694,8 @@ class FormLayout(QWidget):
     def init_ble_breathing(self):
         if self.breathingActive.isChecked():
             print("Scanning for Go Direct BLE devices...")
-            
-            if gdx.open(connection='ble', device_to_open='GDX-RB 0K5011L6'):
+
+            if gdx.open(connection=self.logger.breathing_connection, device_to_open=self.logger.breathing_address):
 
                 gdx.select_sensors([1, 2])
                 info = gdx.device_info()
@@ -904,6 +904,8 @@ class Logger(pg.GraphicsView):
             self.config = json.load(f)
 
             self.fps = self.config["fps"]
+            self.breathing_address = self.config["breathing_address"]
+            self.breathing_connection = self.config["breathing_connection"]
             self.ranging_port = self.config["ranging_port"]
             self.datasets_path = self.config["datasets_path"]
 

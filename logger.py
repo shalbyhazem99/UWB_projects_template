@@ -72,7 +72,7 @@ class SR250MateSignalProcessing(QThread):
         self.room = room
         self.target_position = target_position
         self.timestamp = timestamp
-        self.total_samples_required = self.samples_number * (self.fps * self.window_duration) + self.fps #add a second to have enough samples for decluttering
+        self.total_samples_required = int(self.samples_number * (self.fps * self.window_duration) + self.fps) #add a second to have enough samples for decluttering
 
         self.frames  = np.zeros((self.total_samples_required, self.num_ant, self.range_bins), dtype=np.complex64)
         self.twr  = np.zeros(self.total_samples_required, dtype=np.uint16)
@@ -114,8 +114,8 @@ class SR250MateSignalProcessing(QThread):
                             distance_detected = np.uint16(match.group(1)) - 4630
 
                             self.twr[self.samples_collected] = distance_detected
-                            print(f"Distance detected: {distance_detected} cm")
-                            print(f"Sample collected: {self.samples_collected}")
+                            #print(f"Distance detected: {distance_detected} cm")
+                            #print(f"Sample collected: {self.samples_collected}")
 
                             self.signalRanging.emit(distance_detected)
 
@@ -903,7 +903,7 @@ class Logger(pg.GraphicsView):
         with open('src/logger_conf.json', 'r') as f:
             self.config = json.load(f)
 
-            self.fps = self.config["fps"]
+            self.fps = float(self.config["fps"])
             self.breathing_address = self.config["breathing_address"]
             self.breathing_connection = self.config["breathing_connection"]
             self.ranging_port = self.config["ranging_port"]

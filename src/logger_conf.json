@@ -13,6 +13,5 @@
     "breathing_address":"GDX-RB 0K700660",
     "breathing_connection":"usb",
 
-    "ranging_port" : "COM14",
     "datasets_path" : "datasets"
 }

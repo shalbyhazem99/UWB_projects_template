@@ -58,6 +58,12 @@ class SR250MateSignalProcessing(QThread):
     def run(self):
         self.start_radar() #return when total_samples_required are collected
         if not self.stop_event.is_set():
+            
+            t = np.linspace(0, 0.5, int(44100 * 0.5), endpoint=False)
+            wave = 0.5 * np.sin(2 * np.pi * 440 * t)
+            sd.play(wave, 44100)
+            sd.wait()  # Wait until the sound is finished
+
             self.save_data()
         #self.stop_event.clear()
         print("DATA ACQUISITION FINISHED!")
@@ -90,7 +96,6 @@ class SR250MateSignalProcessing(QThread):
         len_antenna = self.taps*2
 
         pattern = r":\s*(\d+)"
-
 
         try:
             self.ser.write(b"START")
@@ -170,7 +175,7 @@ class SR250MateSignalProcessing(QThread):
                         self.frame = np.concatenate([self.frame, np.frombuffer(data, dtype=np.uint8)])
 
             self.ser.write(b"STOP")
-            self.ser.close()
+            #self.ser.close()
         
         except Exception as e:
             print(f"Error: {e}")
@@ -615,34 +620,37 @@ class FormLayout(QWidget):
             self.special_label.setVisible(False)
 
     
-
-
+    def get_serial_ports(self, info):
+        esp_port = None
+        ports = list_ports.comports()
+        for port in ports: 
+            try: 
+                ser = serial.Serial(port.device, timeout = 1) 
+                ser.write(b'INFO\r\n') 
+                response = ser.read(100).decode('utf-8', errors='ignore') 
+                print(f"Response: {str(response)}")
+                if info in response: 
+                    esp_port = port.device 
+                    ser.close() 
+                    print(f"Found SR250 device on port {esp_port}") 
+                    break 
+                
+            except Exception as e: 
+                print(f"Error checking port {port.device}: {e}") 
+                continue
+        return esp_port
     
+
     def init_serial_sr250(self):
 
         if self.sr250active.isChecked() or self.sr250rangingActive.isChecked():
             esp_port = None 
 
             if self.sr250active.isChecked():
-                ports = list_ports.comports()
-                for port in ports: 
-                    try: 
-                        ser = serial.Serial(port.device, timeout = 1) 
-                        ser.write(b'INFO\r\n') 
-                        response = ser.read(100).decode('utf-8', errors='ignore') 
-                        print(f"Response: {str(response)}")
-                        if "SR250" in response: 
-                            esp_port = port.device 
-                            ser.close() 
-                            print(f"Found SR250 device on port {esp_port}") 
-                            break 
-                        
-                    except Exception as e: 
-                        print(f"Error checking port {port.device}: {e}") 
-                        continue
+                esp_port = self.get_serial_ports("SR250")
 
             elif self.sr250rangingActive.isChecked():
-                esp_port = self.logger.ranging_port
+                esp_port = self.get_serial_ports("Ranging")
             
 
             if esp_port is None:
@@ -906,7 +914,6 @@ class Logger(pg.GraphicsView):
             self.fps = float(self.config["fps"])
             self.breathing_address = self.config["breathing_address"]
             self.breathing_connection = self.config["breathing_connection"]
-            self.ranging_port = self.config["ranging_port"]
             self.datasets_path = self.config["datasets_path"]
 
             if not os.path.exists(self.datasets_path):

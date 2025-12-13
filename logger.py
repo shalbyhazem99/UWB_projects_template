@@ -18,12 +18,14 @@ from pyqtgraph.Qt.QtCore import QRegExp, QSize, QThread, pyqtSignal, Qt, pyqtSlo
 from pyqtgraph.Qt.QtGui import QRegExpValidator
 
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
-from bleak import BleakScanner
+from bleak import BleakScanner, BleakClient
 from blehrm import blehrm
 from collections import deque
 import asyncio
 import csv
 import re
+
+import asyncio
 
 import src.gdx as gdx
 gdx = gdx.gdx()
@@ -474,6 +476,108 @@ class BreathingProcessing(QThread):
         print(f"Saved Breathing BLE data to {filepath}")
         self.collection_finished.emit([filepath], "Breathing")
 
+class NanoBLESignalProcessing(QThread):
+    collection_finished = pyqtSignal(object,str)
+    signalLive = pyqtSignal(float, float, float)
+
+    def __init__(self, stop_event, side, show_live = True):
+        super().__init__()
+        self.stop_event = stop_event
+        self.period_in_ms = 50
+        self.collection_complete=False
+        self.sensors_data = [[], [], [], [], [], []]
+        self.number_of_readings = 0
+        self.samples_collected = 0
+        self.stop_async = None  # asyncio.Event
+        self.datasets = "datasets"
+        self.side = side        
+        self.show_live = show_live
+
+    def set_parameters(self, address, datasets, user_id, activity, room, target_position, timestamp, window_duration, samples_number, SERVICE_UUID, CHAR_UUID):
+        self.address = address
+        self.datasets = datasets
+        self.user_id = user_id
+        self.activity = activity
+        self.room = room
+        self.target_position = target_position
+        self.timestamp = timestamp
+        self.window_duration = window_duration
+        self.samples_number = samples_number
+
+        self.SERVICE_UUID = SERVICE_UUID
+        self.CHAR_UUID = CHAR_UUID
+
+        self.number_of_readings = int((self.samples_number * self.window_duration * 1000) / self.period_in_ms)
+
+    def run(self):
+        asyncio.run(self._run_async())
+
+    async def _run_async(self):
+        print(f"Connessione a Nano {self.side}...")
+
+        self.sensors_data = [[], [], [], [], [], []]
+        self.samples_collected = 0
+        self.stop_async = asyncio.Event()
+
+        async with BleakClient(self.address) as client:
+            if not client.is_connected:
+                print("❌ Connessione fallita")
+                return
+
+            print("✔ Connesso")
+            await client.start_notify(
+                self.CHAR_UUID,
+                self.notification_handler
+            )
+
+            try:
+                # ⬇️ ATTENDE finché non raggiungiamo number_of_readings
+                await self.stop_async.wait()
+            finally:
+                print("Stopping BLE notify")
+                await client.stop_notify(self.CHAR_UUID)
+
+        self.save_data()
+
+    def notification_handler(self, sender, data):
+        try:
+            text = data.decode().strip()
+            accX, accY, accZ, gyroX, gyroY, gyroZ = map(float, text.split(","))
+
+            if self.show_live:
+                self.signalLive.emit(accX, accY, accZ)
+
+            self.sensors_data[0].append(accX)
+            self.sensors_data[1].append(accY)
+            self.sensors_data[2].append(accZ)
+            self.sensors_data[3].append(gyroX)
+            self.sensors_data[4].append(gyroY)
+            self.sensors_data[5].append(gyroZ)
+
+            self.samples_collected += 1
+
+            # ✅ CONDIZIONE DI STOP AUTOMATICO
+            if self.samples_collected >= self.number_of_readings:
+                self.stop_async.set()
+
+        except Exception as e:
+            print("Errore parsing:", e)
+
+    def save_data(self):
+        folder = os.path.join(self.datasets, f"NanoBLE_{self.side}")
+        os.makedirs(folder, exist_ok=True)
+
+        filename = f"{self.user_id}_{self.activity}_{self.side}_{self.timestamp}_NanoBLE_{self.side}.csv"
+        path = os.path.join(folder, filename)
+
+        with open(path, "w") as f:
+            f.write("acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z\n")
+            for accX, accY, accZ, gyroX, gyroY, gyroZ in zip(*self.sensors_data):
+                f.write(f"{accX},{accY},{accZ},{gyroX},{gyroY},{gyroZ}\n")
+
+        self.collection_finished.emit([path], f"Nano {self.side}")
+
+
 
         
 class FormLayout(QWidget):
@@ -582,6 +686,25 @@ class FormLayout(QWidget):
         checkbox_gt_layout.addStretch()
 
         layout.addRow(QLabel("Ground truth:"), checkbox_gt_layout)
+
+        #GT ACC
+
+        checkbox_gt2_layout = QHBoxLayout()
+        self.accRightActive = QCheckBox("Acceleration Nano Right")
+        self.accRightActive.setLayoutDirection(Qt.RightToLeft)
+        self.accRightActive.setStyleSheet("QCheckBox { color: crimson; }")
+        self.accRightActive.toggled.connect(self.init_nano_right)
+        self.accLeftActive = QCheckBox("Acceleration Nano Left")
+        self.accLeftActive.setLayoutDirection(Qt.RightToLeft)
+        self.accLeftActive.setStyleSheet("QCheckBox { color: crimson; }")
+        self.accLeftActive.toggled.connect(self.init_nano_left)
+
+        checkbox_gt2_layout.addWidget(self.accRightActive)
+        checkbox_gt2_layout.addStretch()
+        checkbox_gt2_layout.addWidget(self.accLeftActive)
+        checkbox_gt2_layout.addStretch()
+
+        layout.addRow(QLabel(""), checkbox_gt2_layout)
 
 
     def add_special_activities(self, text):
@@ -721,6 +844,45 @@ class FormLayout(QWidget):
             print("Go Direct BLE disabled.")
             self.breathingActive.setStyleSheet("QCheckBox { color: crimson; }")
 
+    def init_nano_right(self):
+        if self.accRightActive.isChecked():
+            print("Scanning for Nano Right BLE devices...")
+            devices = asyncio.run(BleakScanner.discover(timeout=5.0))
+
+            nano_device = next((d for d in devices if d.name and "Nano33BLE_Right" in d.name), None)
+            if nano_device:
+                print(f"Found {nano_device.name} ({nano_device.address})")
+                self.nano_right_address = nano_device.address
+                self.accRightActive.setStyleSheet("QCheckBox { color: green; }")
+            else:
+                print("No Nano Right device found.")
+                self.nano_right_address = None
+                self.accRightActive.setChecked(False)
+                self.accRightActive.setStyleSheet("QCheckBox { color: crimson; }")
+        else:
+            print("Nano Right BLE disabled.")
+            self.nano_right_address = None
+            self.accRightActive.setStyleSheet("QCheckBox { color: crimson; }")
+
+    def init_nano_left(self):
+        if self.accLeftActive.isChecked():
+            print("Scanning for Nano Left BLE devices...")
+            devices = asyncio.run(BleakScanner.discover(timeout=5.0))
+
+            nano_device = next((d for d in devices if d.name and "Nano33BLE_Left" in d.name), None)
+            if nano_device:
+                print(f"Found {nano_device.name} ({nano_device.address})")
+                self.nano_left_address = nano_device.address
+                self.accLeftActive.setStyleSheet("QCheckBox { color: green; }")
+            else:
+                print("No Nano Left device found.")
+                self.nano_left_address = None
+                self.accLeftActive.setChecked(False)
+                self.accLeftActive.setStyleSheet("QCheckBox { color: crimson; }")
+        else:
+            print("Nano Left BLE disabled.")
+            self.nano_left_address = None
+            self.accLeftActive.setStyleSheet("QCheckBox { color: crimson; }")
 
 class Logger(pg.GraphicsView):
     def __init__(self):
@@ -915,6 +1077,9 @@ class Logger(pg.GraphicsView):
             self.breathing_address = self.config["breathing_address"]
             self.breathing_connection = self.config["breathing_connection"]
             self.datasets_path = self.config["datasets_path"]
+
+            self.SERVICE_UUID = self.config["SERVICE_UUID"]
+            self.CHAR_UUID = self.config["CHAR_UUID"]
 
             if not os.path.exists(self.datasets_path):
                 os.mkdir(self.datasets_path)
@@ -1171,12 +1336,26 @@ class Logger(pg.GraphicsView):
                 self.breathing_band.collection_finished.connect(self.save_message)
                 self.breathing_band.signalLive.connect(self.show_breathing_signal)
                 self.breathing_band.set_parameters(self.samples_number, self.window_duration, self.datasets_path, self.username, self.activity, self.room, self.selected_pos, timestamp)    
-            
+            if self.form.accRightActive.isChecked():
+                self.nano_right_acc = NanoBLESignalProcessing(stop_event=self.stop_event, side="Right", show_live=not self.form.cardioActive.isChecked())
+                self.nano_right_acc.collection_finished.connect(self.save_message)
+                self.nano_right_acc.signalLive.connect(self.show_nano_acc)
+                self.nano_right_acc.set_parameters(address=self.form.nano_right_address, datasets=self.datasets_path, user_id=self.username, activity=self.activity, room=self.room, target_position=self.selected_pos, timestamp=timestamp, window_duration=self.window_duration, samples_number=self.samples_number, SERVICE_UUID=self.SERVICE_UUID, CHAR_UUID=self.CHAR_UUID)
+            if self.form.accLeftActive.isChecked():
+                self.nano_left_acc = NanoBLESignalProcessing(stop_event=self.stop_event, side="Left", show_live=not (self.form.accRightActive.isChecked() or self.form.cardioActive.isChecked()))
+                self.nano_left_acc.collection_finished.connect(self.save_message)
+                self.nano_left_acc.signalLive.connect(self.show_nano_acc)
+                self.nano_left_acc.set_parameters(address=self.form.nano_left_address, datasets=self.datasets_path, user_id=self.username, activity=self.activity, room=self.room, target_position=self.selected_pos, timestamp=timestamp, window_duration=self.window_duration, samples_number=self.samples_number, SERVICE_UUID=self.SERVICE_UUID, CHAR_UUID=self.CHAR_UUID)
+
 
             if self.form.sr250active.isChecked() or self.form.sr250rangingActive.isChecked():
                 self.sr250_radar.start()
             if self.form.breathingActive.isChecked():
                 self.breathing_band.start()
+            if self.form.accRightActive.isChecked():
+                self.nano_right_acc.start()
+            if self.form.accLeftActive.isChecked():
+                self.nano_left_acc.start()
 
 
         else:
@@ -1348,6 +1527,23 @@ class Logger(pg.GraphicsView):
             self.acc_z_curve_data = self.acc_z_curve_data[-3000:]
         n = len(self.acc_x_curve_data)
         t = np.linspace(-n / 200, 0, n, endpoint=False)
+        self.acc_curve_x.setData(t, self.acc_x_curve_data)
+        self.acc_curve_y.setData(t, self.acc_y_curve_data)
+        self.acc_curve_z.setData(t, self.acc_z_curve_data)
+
+    @pyqtSlot(float, float, float)
+    def show_nano_acc(self, acc_x, acc_y, acc_z):
+        self.acc_x_curve_data.append(acc_x)
+        self.acc_y_curve_data.append(acc_y)
+        self.acc_z_curve_data.append(acc_z)
+
+        # 15 s * 20 Hz = 300
+        if len(self.acc_x_curve_data) > 300:
+            self.acc_x_curve_data = self.acc_x_curve_data[-300:]
+            self.acc_y_curve_data = self.acc_y_curve_data[-300:]
+            self.acc_z_curve_data = self.acc_z_curve_data[-300:]
+        n = len(self.acc_x_curve_data)
+        t = np.linspace(-n / 20, 0, n, endpoint=False)
         self.acc_curve_x.setData(t, self.acc_x_curve_data)
         self.acc_curve_y.setData(t, self.acc_y_curve_data)
         self.acc_curve_z.setData(t, self.acc_z_curve_data)

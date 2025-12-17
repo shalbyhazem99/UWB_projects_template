@@ -253,6 +253,13 @@ receive radar frames sent by `bridge.py`, you must correctly wire the
 
 ---
 
+## Signal Analysis Tools
+
+This repository includes a set of Jupyter Notebook–based tools for signal analysis and inspection.  
+The notebooks cover breathing rate extraction, inhalation/exhalation visualization, and log inspection for distance alignment and preprocessing.
+
+For details and usage instructions, refer to the dedicated README in this repository [Signal Analysis Tools](tools/readme.md)
+
 ## 💡 Overview of the Workflow
 
 ### **1. Record data (optional, using logger.py)**

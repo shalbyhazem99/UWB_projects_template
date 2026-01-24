@@ -188,8 +188,14 @@ python logger.py
 
 ## ▶️ Bridge – Send Data to the TinyML Model
 
-`bridge.py` sends radar frames to the tinyML board in two possible ways:
+To see all available command-line options, run:
+```sh
+python bridge.py -h
+```
 
+**N.B. If you need to use radar + ranging, use `bridge_twr.py` instead of `bridge.py`.**
+
+`bridge.py` and `bridge_twr.py` sends radar frames to the tinyML board in two possible ways:
 
 ### 1. Live Radar Mode
 
@@ -198,13 +204,13 @@ Use this mode when the radar is connected and generating data in real time.
 ### **Command**
 
 ```sh
-python src/bridge.py --radar <RADAR_PORT> --model <MODEL_PORT>
+python bridge.py --radar <RADAR_PORT> --model <MODEL_PORT> --start_bin <START_INDEX> --end_bin <END_INDEX>
 ```
 
 ### Example
 
 ```sh
-python src/bridge.py --radar COM6 --model COM9
+python bridge.py --radar COM6 --model COM9 --start_bin 6 --end_bin 26
 ```
 
 ---
@@ -216,13 +222,13 @@ Use this mode to replay `.npy` logs recorded with `logger.py`.
 ### **Command**
 
 ```sh
-python src/bridge.py --log_folder <FOLDER> --frequency <Hz> --model <MODEL_PORT>
+python bridge.py --log_folder <FOLDER> --frequency <Hz> --model <MODEL_PORT> --start_bin <START_INDEX> --end_bin <END_INDEX>
 ```
 
 ### Example
 
 ```sh
-python src/bridge.py --log_folder datasets/my_log --frequency 10 --model COM9
+python bridge.py --log_folder datasets/my_log --frequency 10 --model COM9 --start_bin 6 --end_bin 26
 ```
 
 The folder must contain files like:
@@ -236,8 +242,10 @@ something_rx2.npy
 ## 🔌 Hardware Setup -- Connecting Arduino Nano ↔ UART‑TTL Converter
 
 To allow the microcontroller (Arduino Nano) running the TinyML model to
-receive radar frames sent by `bridge.py`, you must correctly wire the
+receive radar frames sent by `bridge.py` or `bridge_twr.py`, you must correctly wire the
 **UART‑TTL converter** to the Arduino hardware serial pins.
+
+**N.B.** `MODEL_PORT` is where you connected the **UART‑TTL converter**.
 
 ### 📷 Wiring Diagram
 

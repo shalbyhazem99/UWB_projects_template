@@ -13,7 +13,7 @@ ser_model = None
 thread_lock = threading.Lock()
 thread_running = False
 
-def send_to_model(ser_model, frame, start_bin, end_bin):
+def send_to_model(ser_model, twr_str, frame, start_bin, end_bin):
     if(frame.shape[0]==1536):
 
         ser_model.write(b"BEGIN\n")
@@ -29,6 +29,10 @@ def send_to_model(ser_model, frame, start_bin, end_bin):
         time.sleep(0.01)
 
         ser_model.write(b"END\n")
+        time.sleep(0.01)
+
+        ser_model.write(twr_str.encode())
+        print("Sending to model: ", twr_str)
         time.sleep(0.01)
     else:
         print("Frame incorrect!!!, size: ", frame.shape[0])
@@ -55,7 +59,7 @@ def thread_log(complete_logs, log_folder, frequency, ser_model, start_bin, end_b
             ser_model.write(b"BEGIN\n")
             for rx_index in range(3):
                 #frame += (b"\x00" * 2)  # header
-                for c in df_rx[rx_index][i][start_bin+1: (end_bin + 1) if end_bin != -1  and end_bin < 120 else 120]:
+                for c in df_rx[rx_index][i][start_bin+1: (end_bin + 1) if end_bin != -1  and end_bin < 120 else 121]:
                     frame += complex_to_4bytes(c)
             #frame += (b"\x00" * 2)  # header
             #frame += b"\n"
@@ -65,6 +69,9 @@ def thread_log(complete_logs, log_folder, frequency, ser_model, start_bin, end_b
             #print(frame.hex(" "))
 
             ser_model.write(b"END\n")
+            int_distance = int(df_rx[0][i][0].real) + 4630
+
+            ser_model.write(b"TWR[0].distance: " + str(int_distance).encode() + b"\n")
 
             time.sleep(delay)
         
@@ -95,6 +102,7 @@ def radar(radar_port, model_port, start_bin, end_bin):
     
     append_flag = False
     frame = np.empty((0), dtype = np.uint8)
+    twr_str = ""
     
     try:
         while True:
@@ -107,9 +115,11 @@ def radar(radar_port, model_port, start_bin, end_bin):
                     if data == b"BEGIN\n":
                         frame = np.empty((0), dtype = np.uint8)
                         append_flag=True
+                    elif "TWR[0].distance" in str(data):
+                        twr_str = str(data)
                 else:
                     if data == b"END\n":
-                        send_to_model(ser_model, frame[:-1], start_bin, end_bin)
+                        send_to_model(ser_model, twr_str, frame[:-1], start_bin, end_bin)
                         append_flag=False
                     else:
                         frame = np.concatenate([frame, np.frombuffer(data, dtype=np.uint8)])
@@ -179,8 +189,8 @@ def log(log_folder, frequency, model_port, start_bin, end_bin):
                 print("[MODEL]: ", msg)
 
                 if msg == "INFO":
-                    ser_model.write(b"SR250\n")
-                    print("[BRIDGE]: SR250")
+                    ser_model.write(b"Ranging\n")
+                    print("[BRIDGE]: Ranging")
 
                 elif msg == "START":
                     

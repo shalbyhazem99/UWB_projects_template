@@ -57,11 +57,13 @@ struct Complex {
 // ============================================================================
 State currentState = START_RADAR;
 uint8_t raw_frame[RAW_FRAME_SIZE];
+int raw_twr = 0;
 bool firstSample = true;
 Complex decBase[NUM_ANTENNAS][INTERESTING_CIR_SIZE];
 int iteration = 0;
 
 float frame_buffer[WINDOW_SIZE][INTERESTING_CIR_SIZE];
+int twr_buffer[WINDOW_SIZE];
 int frame_count = 0;
 float hamming_window[WINDOW_SIZE];
 
@@ -86,24 +88,40 @@ void sendDEBUG(String print){
   Serial.println(print);
 }
 
-bool consume_string(String string_to_check){
-  for (int i = 0; i < string_to_check.length(); i++){
-    while (!Serial1.available()){
-      delay(1);
+int consume_string(String string_to_check, String second_string_to_check){
+
+  while (!Serial1.available());
+  char temp = (char)Serial1.read();
+
+  if ((char)string_to_check[0] == temp){
+    for (int i = 1; i < string_to_check.length(); i++){
+      while (!Serial1.available());
+      char temp = (char)Serial1.read();
+      if ((char)string_to_check[i] != temp){
+        return -1;
+      }
     }
-    char temp = (char)Serial1.read();
-    // Serial.print(temp);
-    if ((char)string_to_check[i] != temp){
-      return false;
+    while (!Serial1.available());
+    if (Serial1.read() != 0x0A){
+      return -1;
     }
+    return 0;
   }
-  while (!Serial1.available()){
-    delay(1);
+  else if ((char)second_string_to_check[0] == temp){
+    for (int i = 1; i < second_string_to_check.length(); i++){
+      while (!Serial1.available());
+      char temp = (char)Serial1.read();
+      if ((char)second_string_to_check[i] != temp){
+        return -1;
+      }
+    }
+    while (!Serial1.available());
+    String twr = Serial1.readStringUntil('\n');
+    return twr.toInt();
   }
-  if (Serial1.read() != 0x0A){
-    return false;
-  }
-  return true;
+  
+  return -1;
+
 }
 
 void init_hamming_window() {
@@ -119,15 +137,22 @@ bool read_data(){
   int frame_index = 0;
   ReadState readState = BEGIN;
   char hexStr[RAW_FRAME_SIZE * 3 + 1]; 
+  int result = -1;
+
+  raw_twr = 0;
 
   while(true){
     switch (readState) {
       case BEGIN:
-        if (consume_string("BEGIN")){
+        result = consume_string("BEGIN", "TWR[0].distance:");
+        if (result == 0){
           readState = FRAME;
         }
+        else if (result > 0){
+          raw_twr = result - 4630;
+        }
         else{
-          sendDEBUG("Error BEGIN!");
+          ;//sendDEBUG("Error BEGIN!");
         }
         break;
         
@@ -150,7 +175,7 @@ bool read_data(){
         break;
         
       case END:
-        return consume_string("END");
+        return (consume_string("END", "END")==0)?true:false;
         break;
     }
   }
@@ -210,6 +235,7 @@ void preprocessing(){
       frame_buffer[frame_count][i] = sqrt(dec[0][i].real * dec[0][i].real + 
                                           dec[0][i].imag * dec[0][i].imag);
     }
+    twr_buffer[frame_count] = raw_twr;
     frame_count++;
   }
 }
@@ -338,12 +364,14 @@ void run_model(){
     unsigned long inference_time = millis() - t0;
     
     sendDEBUG("=================================");
+    sendDEBUG("TWR Distance: " + String(twr_buffer[frame_count - 1]));
     sendDEBUG("Prediction: " + String(CLASS_NAMES[predicted_class]));
     sendDEBUG("Inference time: " + String(inference_time) + " ms");
     sendDEBUG("=================================");
     
     frame_count = 0;
   }
+
 }
 
 // ============================================================================
@@ -401,8 +429,8 @@ void setup() {
   sendDEBUG("Input shape: [" + String(input->dims->data[0]) + ", " + 
             String(input->dims->data[1]) + ", " + 
             String(input->dims->data[2]) + ", " + 
-            String(input->dims->data[3]) + "]");
-
+            String(input->dims->data[3]) + "]"); 
+  
   sendDEBUG("Finding radar...");
   bool radar_found = false;
   while (!radar_found){
@@ -418,9 +446,9 @@ void setup() {
       }
     }
 
-    if (lineBuffer.indexOf("SR250") != -1) {
+    if (lineBuffer.indexOf("Ranging") != -1) {
       radar_found = true;
-      sendDEBUG("SR250 radar found!");
+      sendDEBUG("SR250 radar Ranging found!");
     }
   }
   
@@ -442,7 +470,7 @@ void loop() {
         currentState = PREPROCESSING;
       }
       else{
-        sendDEBUG("Error parser frames - ErorrEND!!!");
+        sendDEBUG("Error parser frames!!!");
       }
       break;
 

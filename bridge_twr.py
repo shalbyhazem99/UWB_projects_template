@@ -21,9 +21,10 @@ def send_to_model(ser_model, twr_str, frame, start_bin, end_bin):
 
         frame_to_send = b""
         for i in range(3):
-            frame_to_send += frame[(i*512)+32+start_bin:(i*512)+32+(end_bin*4)].tobytes()
+            frame_to_send += frame[(i*512)+32+(start_bin*4):(i*512)+32+(end_bin*4)].tobytes()
         frame_to_send += b'\n'
 
+        print("Frame size to send: ", len(frame_to_send))
         print("Sending to model: ", frame_to_send.hex(" "))
         ser_model.write(frame_to_send)
         time.sleep(0.01)
@@ -32,7 +33,7 @@ def send_to_model(ser_model, twr_str, frame, start_bin, end_bin):
         time.sleep(0.01)
 
         ser_model.write(twr_str.encode())
-        print("Sending to model: ", twr_str)
+        #print("Sending to model: ", twr_str)
         time.sleep(0.01)
     else:
         print("Frame incorrect!!!, size: ", frame.shape[0])
@@ -59,7 +60,7 @@ def thread_log(complete_logs, log_folder, frequency, ser_model, start_bin, end_b
             ser_model.write(b"BEGIN\n")
             for rx_index in range(3):
                 #frame += (b"\x00" * 2)  # header
-                for c in df_rx[rx_index][i][start_bin+1: (end_bin + 1) if end_bin != -1  and end_bin < 120 else 121]:
+                for c in df_rx[rx_index][i][start_bin+1: (end_bin + 1) if end_bin != -1  and end_bin < 121 else 121]:
                     frame += complex_to_4bytes(c)
             #frame += (b"\x00" * 2)  # header
             #frame += b"\n"
@@ -100,6 +101,8 @@ def radar(radar_port, model_port, start_bin, end_bin):
         print(f"Could not open serial port: {radar_port}")
         return
     
+    print("Bridge started. Press CTRL+C to exit.\n")
+
     append_flag = False
     frame = np.empty((0), dtype = np.uint8)
     twr_str = ""
@@ -109,14 +112,14 @@ def radar(radar_port, model_port, start_bin, end_bin):
 
             if ser_radar.in_waiting:
                 data = ser_radar.readline()
-                ser_model.write(data)
+                #ser_model.write(data)
 
                 if not append_flag:
                     if data == b"BEGIN\n":
                         frame = np.empty((0), dtype = np.uint8)
                         append_flag=True
                     elif "TWR[0].distance" in str(data):
-                        twr_str = str(data)
+                        twr_str = str(data.decode(errors="replace"))
                 else:
                     if data == b"END\n":
                         send_to_model(ser_model, twr_str, frame[:-1], start_bin, end_bin)
@@ -126,7 +129,10 @@ def radar(radar_port, model_port, start_bin, end_bin):
 
             if ser_model.in_waiting:
                 data = ser_model.read(ser_model.in_waiting)
-                ser_radar.write(data)
+                if "INFO" in data.decode(errors="replace"):
+                    ser_model.write(b"Ranging\n")
+                else:
+                    ser_radar.write(data)
 
 
             time.sleep(0.0005)

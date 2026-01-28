@@ -88,18 +88,15 @@ void sendDEBUG(String print){
 
 bool consume_string(String string_to_check){
   for (int i = 0; i < string_to_check.length(); i++){
-    while (!Serial1.available()){
-      delay(1);
-    }
+    while (!Serial1.available());
     char temp = (char)Serial1.read();
     // Serial.print(temp);
     if ((char)string_to_check[i] != temp){
       return false;
     }
   }
-  while (!Serial1.available()){
-    delay(1);
-  }
+  while (!Serial1.available());
+
   if (Serial1.read() != 0x0A){
     return false;
   }

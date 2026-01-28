@@ -117,7 +117,16 @@ int consume_string(String string_to_check, String second_string_to_check){
     }
     while (!Serial1.available());
     String twr = Serial1.readStringUntil('\n');
-    return twr.toInt();
+    twr.trim();
+
+    int idx = twr.indexOf(':');
+    int val = 0;
+
+    if (idx != -1) {
+      val = twr.substring(idx + 1).toInt();
+    }
+
+    return val;
   }
   
   return -1;
@@ -144,7 +153,7 @@ bool read_data(){
   while(true){
     switch (readState) {
       case BEGIN:
-        result = consume_string("BEGIN", "TWR[0].distance:");
+        result = consume_string("BEGIN", "TWR[0].distance");
         if (result == 0){
           readState = FRAME;
         }
